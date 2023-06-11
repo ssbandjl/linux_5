@@ -471,3 +471,65 @@ make menuconfig
 include/config/kernel.release
 include/generated/utsrelease.h
 include/linux/vermagic.h
+
+查看压缩ko:
+cd /lib/modules/5.10.38-21.hl10.el7.x86_64/kernel/drivers/scsi
+xz -l sd_mod.ko.xz
+
+make modules_install
+make install
+grub2-set-default 0
+
+make oldconfig && make prepare
+
+include/generated/autoconf.h is generated in the make prepare step. If you are trying to build a kernel module, you will also need the make scripts step:
+gunzip < /proc/config.gz > .config
+make oldconfig
+make prepare
+make scripts
+
+ip set link xxx down (close 1 path) -> iscsi_check_transport_timeouts
+[12291.650194]  connection3:0: ping timeout of 5 secs expired, recv timeout 5, last rx 4306948309, last ping 4306953344, now 4306958848
+[12291.650313]  connection3:0: detected conn error (1022) <- void iscsi_conn_error_event
+[12296.770199]  session3: session recovery timed out after 5 secs
+[12297.554572] device-mapper: multipath: 253:3: Failing path 8:16.
+
+
+[root@node1 linux]# bpftrace -e 'kprobe:fail_path { printf("bt:%s\n", kstack); }'
+Attaching 1 probe...
+bt:
+        fail_path+1
+        multipath_message+342
+        target_message+627
+        ctl_ioctl+431
+        dm_ctl_ioctl+10
+        __x64_sys_ioctl+132
+        do_syscall_64+51
+        entry_SYSCALL_64_after_hwframe+68
+
+
+iscsi_conn_setup(struct iscsi_cls_session *cls_session
+iscsi_check_transport_timeouts -> callback
+	void iscsi_conn_error_event
+
+
+
+iscsiadm -> main.c
+MODE_DISCOVERY
+exec_disc_op
+do_target_discovery
+sendtargets
+do_software_sendtargets
+discovery_sendtargets
+iscsi_create_session
+iscsi_create_leading_conn
+create_conn -> kcreate_conn
+  ev.type = ISCSI_UEVENT_CREATE_CONN
+  rc = __kipc_call(iov, 2) -> driver -> kernel -> drivers/scsi/scsi_transport_iscsi.c -> iscsi_if_recv_msg
+  	case ISCSI_UEVENT_CREATE_CONN:
+		err = iscsi_if_create_conn(transport, ev);
+			session = iscsi_session_lookup(ev->u.c_conn.sid)
+			conn = transport->create_conn -> iscsi_sw_tcp_conn_create
+				iscsi_tcp_conn_setup
+
+
