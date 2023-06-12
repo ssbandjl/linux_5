@@ -307,7 +307,7 @@ static struct pci_driver isci_pci_driver = {
 isci_pci_probe
 isci_host_alloc
 scsi_host_alloc -> struct Scsi_Host *scsi_host_alloc
-	scsi_error_handler -> int scsi_error_handler -> 错误恢复
+	shost->ehandler = kthread_run(scsi_error_handler -> scsi_error_handler -> int scsi_error_handler -> 错误恢复
 		scsi_restart_operations(shost) -> static void scsi_restart_operations
 
 int iscsi_host_add -> 模块加载
@@ -532,4 +532,59 @@ create_conn -> kcreate_conn
 			conn = transport->create_conn -> iscsi_sw_tcp_conn_create
 				iscsi_tcp_conn_setup
 
+
+
+discovery
+login/logout
+1. Discovery
+In this code path, we usually call to 
+discovery_sendtarget
+--> request_target
+     --> iscsi_io_send_pdu,  which basically writes on a socket opened by iscsiadm, and reads from the socket by "iscsi_io_rev_pdu".
+
+2. login/logout
+In this code path, it get usually triggers to 
+mgmt_ipc_session_login
+   -> __session_login_task -> static int __session_login_task
+    iscsi_sysfs_get_transport_by_name
+      transport_load_kmod
+		    rc = kmod_module_new_from_name(ctx, "ib_iser", &mod);
+        加载内核模块ko -> iscsi_tcp | ib_iser
+        __session_create
+          iscsi_setup_authentication
+          iscsi_session_init_params
+          list_add_tail(&session->list, &t->sessions)
+        __session_conn_create
+        iscsi_host_set_net_params
+        qtask->rsp.command = MGMT_IPC_SESSION_LOGIN
+        -> iscsi_conn_connect -> static int iscsi_conn_connect
+          iscsi_ev_context_get
+          conn->session->t->template->ep_connect -> iscsi_io_tcp_connect
+            connect(conn->socket_fd, (struct sockaddr *) ss, sizeof (*ss)) -> 连接到tgt
+                --> iscsi_sched_ev_context -> static int iscsi_sched_ev_context
+                  case EV_CONN_POLL -> actor_poll
+                        --> session_conn_poll -> static void session_conn_poll
+                          iscsi_ev_context_put
+                          session->t->template->ep_poll
+                          session_ipc_create -> static int session_ipc_create
+                            ipc->create_session -> kcreate_session(uint64_t transport_handle
+                              ev.type = ISCSI_UEVENT_CREATE_SESSION
+                              __kipc_call(iov, 2) -> __kipc_call(struct iovec *iovp, int count)
+                                kwritev(type, iovp, count) -> 调用内核态驱动函数 -> iscsi_if_recv_msg -> iscsi_if_create_session -> ...
+                              ...
+                                --> iscsi_login_req
+                                  iscsi_make_login_pdu
+                                    login_hdr->opcode = ISCSI_OP_LOGIN | ISCSI_OP_IMMEDIATE
+                                      --> iscsi_io_send_pdu -> send a PDU to the target -> iscsi_io_send_pdu(iscsi_conn_t *conn
+                                        case ISCSI_OP_LOGIN
+                                        login_hdr->flags & ISCSI_FLAG_LOGIN_TRANSIT
+In my understanding, discovery, login/logout does not involve iscsi kernel and send pdu over open by userspace socket.
+
+
+iscsi_if_create_session(struct iscsi_internal *priv
+	transport->create_session -> iscsi_sw_tcp_session_create
+		shost = iscsi_host_alloc
+		iscsi_host_add
+		iscsi_session_setup
+		iscsi_tcp_r2tpool_alloc
 
