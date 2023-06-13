@@ -19,6 +19,7 @@ static const struct blk_mq_ops bsg_mq_ops = {
 };
 
 驱动目录: drivers/nvme/Makefile
+ls -alh /lib/modules/5.10.38-21.hl10.el7.x86_64/kernel/drivers/scsi/
 参考: https://mp.weixin.qq.com/s/GKVIY_NOXDfUCOho4zBMzw
 Kconfig 文件的作用是：
 1.控制make menuconfig时， 出现的配置选项；
@@ -340,6 +341,12 @@ modinfo sd_mod
 modinfo drivers/scsi/sd_mod.ko
 make clean; make; rmmod sd_mod.ko; insmod sd_mod.ko
 
+模块插入顺序:
+/lib/modules/5.10.38-21.hl10.el7.x86_64/kernel/drivers/scsi
+insmod libiscsi_tcp.ko.xz 
+insmod iscsi_tcp.ko.xz
+
+
 bpftrace -l | more
 
 #!/usr/local/bin/bpftrace
@@ -588,3 +595,5 @@ iscsi_if_create_session(struct iscsi_internal *priv
 		iscsi_session_setup
 		iscsi_tcp_r2tpool_alloc
 
+
+printk(KERN_ALERT "xxx %s:%d\n", __FILE__, __LINE__);
