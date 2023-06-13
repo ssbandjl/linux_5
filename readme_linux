@@ -3,6 +3,12 @@ https://github.com/ssbandjl/linux.git
 bio下发流程: https://blog.csdn.net/flyingnosky/article/details/121362813
 io路径: https://zhuanlan.zhihu.com/p/545906763
 用户态与内核态通信netlink: https://gist.github.com/lflish/15e85da8bb9200794255439d0563b195
+kdir: https://stackoverflow.com/questions/59366772/what-does-the-kernel-compile-rule-exact-mean
+kernel makefile: https://www.kernel.org/doc/html/latest/kbuild/makefiles.html
+Linux模块文件如何编译到内核和独立编译成模块: https://z.itpub.net/article/detail/090A31801416081BC9D0781C05AC91AA
+安装源码: https://wiki.centos.org/HowTos/I_need_the_Kernel_Source
+编译内核模块: https://wiki.centos.org/HowTos/BuildingKernelModules
+
 
 dmesg -w
 
@@ -342,7 +348,8 @@ modinfo drivers/scsi/sd_mod.ko
 make clean; make; rmmod sd_mod.ko; insmod sd_mod.ko
 
 模块插入顺序:
-/lib/modules/5.10.38-21.hl10.el7.x86_64/kernel/drivers/scsi
+cd /lib/modules/5.10.38-21.hl10.el7.x86_64/kernel/drivers/scsi
+cd drivers/scsi/
 insmod libiscsi_tcp.ko.xz 
 insmod iscsi_tcp.ko.xz
 
@@ -597,3 +604,16 @@ iscsi_if_create_session(struct iscsi_internal *priv
 
 
 printk(KERN_ALERT "xxx %s:%d\n", __FILE__, __LINE__);
+
+openssl-devel reinstall, rpm -e openssl-devel_xxx;yum install open-devel
+
+$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) modules
+$(MAKE) -C $(KDIR) M=$(PWD) src=$(PWD) modules
+ko -> Makefile -> KDIR := /lib/modules/5.10.38-21.hl10.el7.x86_64/build
+# KDIR = /lib/modules/5.10.38-21.hl10.el7.x86_64/build
+
+
+modprobe --dump-modversions iscsi_tcp.ko
+ls -alh /lib/modules/$(uname -r)/build/
+rsync -ralpv root@172.17.136.132:/usr/src/kernels/5.10.38-21.hl10.el7.x86_64/* /usr/src/kernels/5.10.38-21.hl10.el7.x86_64/
+
